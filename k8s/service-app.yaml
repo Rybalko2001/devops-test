@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nestjs-app
+  namespace: app-dev
+  labels:
+    app.kubernetes.io/name: nestjs-app
+spec:
+  type: ClusterIP
+  selector:
+    app: nestjs-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000

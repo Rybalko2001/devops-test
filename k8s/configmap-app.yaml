@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nest-app-config
+  namespace: app-dev
+  labels:
+    app.kubernetes.io/name: nest-redis-demo
+    app: nest-redis
+data:
+  REDIS_HOST: "localhost"
+  REDIS_PORT: "6379"
+  APP_PORT: "3000"

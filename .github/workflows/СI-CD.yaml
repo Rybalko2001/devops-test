@@ -1,0 +1,82 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      IMAGE_NAME: nest-redis-demo
+      REGISTRY: docker.io
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+
+      # ------------------
+      # 1. Checkout code
+      # ------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ------------------
+      # 2. Setup Docker Buildx
+      # ------------------
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ------------------
+      # 3. Login to Docker Hub
+      # ------------------
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ------------------
+      # 4. Build & Push Docker image
+      # ------------------
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      # ------------------
+      # 5. Setup Kubernetes
+      # ------------------
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: v1.30.0
+
+      - name: Configure Kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
+
+      # ------------------
+      # 6. Deploy to Kubernetes
+      # ------------------
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f namespace.yaml \
+          -f configmap-app.yaml \
+          -f secret-redis.yaml \
+          -f deployment-redis.yaml \
+          -f service-redis.yaml \
+          -f deployment-app.yaml \
+          -f service-app.yaml \
+          -f networkpolicy.yaml \
+          -f ingress.yaml \
+          -f hpa.yaml
+          kubectl rollout status deployment/nestjs-app -n app-dev
+          
