@@ -146,6 +146,14 @@ jobs:
           curl -s http://localhost:8080/redis
           kill $PORT_FORWARD_PID
 
+
+      - name: Show Pods logs
+        run: |
+          for POD in $(kubectl get pods -n $NAMESPACE -o jsonpath="{.items[*].metadata.name}"); do
+            echo "Logs for $POD:"
+            kubectl logs -n $NAMESPACE $POD || true
+          done
+
       # ------------------
       # 12. Cleanup kind cluster
       # ------------------
