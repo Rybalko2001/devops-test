@@ -64,5 +64,5 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
-            drop: ["ALL"]
+              drop: ["ALL"]
       terminationGracePeriodSeconds: 30
