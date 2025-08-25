@@ -37,9 +37,9 @@ spec:
               value: "redis"        # імʼя сервісу Redis у k8s
             - name: REDIS_PORT
               value: "6379"
-            - name: REDIS_PASSWORD
             - name: REDIS_DB
               value: "0"
+            - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: redis-secret
