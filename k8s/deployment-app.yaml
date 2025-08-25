@@ -28,7 +28,7 @@ spec:
         fsGroup: 10001
       containers:
         - name: api
-          image: "DOCKER_HUB_USERNAME/nest-redis-demo:latest"
+          image: "rybalko2001/nest-redis-demo"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
