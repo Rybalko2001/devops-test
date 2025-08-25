@@ -57,6 +57,9 @@ jobs:
       - name: Load Docker image into Kind
         run: |
           kind load docker-image $IMAGE_NAME:latest --name demo
+      - name: Update image in deployment
+        run: |
+          sed -i "s|image: .*nest-redis-demo.*|image: ${{ secrets.DOCKER_HUB_USERNAME }}/$IMAGE_NAME:$IMAGE_TAG|g" k8s/deployment.yaml
 
       # ------------------
       # 7. Apply Kubernetes manifests in correct order
