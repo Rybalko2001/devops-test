@@ -8,6 +8,7 @@ on:
 
 env:
   IMAGE_NAME: nest-redis-demo
+  NAMESPACE: app-dev
 
 jobs:
   build-and-deploy:
@@ -58,25 +59,51 @@ jobs:
           kind load docker-image $IMAGE_NAME:latest --name demo
 
       # ------------------
-      # 7. Deploy to Kubernetes
+      # 7. Apply Kubernetes manifests in correct order
       # ------------------
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f k8s/
+          # 1. Namespace
+          kubectl apply -f k8s/namespace.yaml
+
+          # 2. Secrets and ConfigMaps
+          kubectl apply -f k8s/secret-redis.yaml
+          kubectl apply -f k8s/configmap-app.yaml
+
+          # 3. Deployments
+          kubectl apply -f k8s/deployment-redis.yaml
+          kubectl apply -f k8s/deployment-app.yaml
+
+          # 4. Services
+          kubectl apply -f k8s/service-redis.yaml
+          kubectl apply -f k8s/service-app.yaml
+
+          # 5. Ingress / NetworkPolicy / HPA
+          kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f k8s/networkpolicy.yaml
+          kubectl apply -f k8s/hpa.yaml
 
       # ------------------
-      # 8. Check Deployment rollout
+      # 8. Verify Deployment rollout
       # ------------------
       - name: Verify Deployment rollout
         run: |
-          kubectl rollout status deployment/$IMAGE_NAME
-          kubectl get pods -o wide
+          kubectl rollout status deployment/$IMAGE_NAME -n $NAMESPACE
+          kubectl get pods -n $NAMESPACE -o wide
 
       # ------------------
       # 9. Show logs from NestJS pod
       # ------------------
       - name: Show NestJS logs
         run: |
-          POD_NAME=$(kubectl get pods -l app=$IMAGE_NAME -o jsonpath="{.items[0].metadata.name}")
+          POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=$IMAGE_NAME -o jsonpath="{.items[0].metadata.name}")
           echo "NestJS Pod: $POD_NAME"
-          kubectl logs $POD_NAME
+          kubectl logs -n $NAMESPACE $POD_NAME
+
+      # ------------------
+      # 10. Cleanup kind cluster
+      # ------------------
+      - name: Delete Kind cluster
+        if: always()
+        run: |
+          kind delete cluster --name demo
