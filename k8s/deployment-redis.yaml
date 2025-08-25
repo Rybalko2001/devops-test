@@ -29,9 +29,9 @@ spec:
           env:
             - name: REDIS_PASSWORD
               valueFrom:
-              secretKeyRef:
-              name: redis-secret
-              key: REDIS_PASSWORD
+                secretKeyRef:
+                  name: redis-secret
+                  key: REDIS_PASSWORD
           ports:
             - containerPort: 6379
           resources:
