@@ -1,4 +1,4 @@
-name: CI/CD
+name: CI/CD for Nest + Redis on Kind
 
 on:
   push:
@@ -6,84 +6,77 @@ on:
   pull_request:
     branches: ["main", "dev"]
 
+env:
+  IMAGE_NAME: nest-redis-demo
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      IMAGE_NAME: nest-redis-demo
-      REGISTRY: docker.io
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
     steps:
+      # ------------------
+      # 1. Checkout repository
+      # ------------------
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       # ------------------
-      # 1. Checkout code
-      # ------------------
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # ------------------
-      # 2. Setup Docker Buildx
-      # ------------------
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # ------------------
-      # 3. Login to Docker Hub
-      # ------------------
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # ------------------
-      # 3.1 Set up Buildx
+      # 2. Set up Docker Buildx
       # ------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       # ------------------
-      # 4. Build & Push Docker image
+      # 3. Build Docker image
       # ------------------
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-
-      # ------------------
-      # 5. Setup Kubernetes
-      # ------------------
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: v1.30.0
-
-      - name: Configure Kubeconfig
+      - name: Build Docker image
         run: |
-          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
+          docker build -t $IMAGE_NAME:latest .
 
       # ------------------
-      # 6. Deploy to Kubernetes
+      # 4. Install kind
       # ------------------
-
-      - name: Deploy to Kubernetes
+      - name: Install kind
         run: |
-          kubectl apply -f namespace.yaml \
-          -f configmap-app.yaml \
-          -f secret-redis.yaml \
-          -f deployment-redis.yaml \
-          -f service-redis.yaml \
-          -f deployment-app.yaml \
-          -f service-app.yaml \
-          -f networkpolicy.yaml \
-          -f ingress.yaml \
-          -f hpa.yaml
-          kubectl rollout status deployment/nestjs-app -n app-dev
-          
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.26.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      # ------------------
+      # 5. Create Kind cluster
+      # ------------------
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --name demo
+          kubectl cluster-info
+
+      # ------------------
+      # 6. Load Docker image into Kind
+      # ------------------
+      - name: Load Docker image into Kind
+        run: |
+          kind load docker-image $IMAGE_NAME:latest --name demo
+
+      # ------------------
+      # 7. Deploy to Kubernetes
+      # ------------------
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/
+
+      # ------------------
+      # 8. Check Deployment rollout
+      # ------------------
+      - name: Verify Deployment rollout
+        run: |
+          kubectl rollout status deployment/$IMAGE_NAME
+          kubectl get pods -o wide
+
+      # ------------------
+      # 9. Show logs from NestJS pod
+      # ------------------
+      - name: Show NestJS logs
+        run: |
+          POD_NAME=$(kubectl get pods -l app=$IMAGE_NAME -o jsonpath="{.items[0].metadata.name}")
+          echo "NestJS Pod: $POD_NAME"
+          kubectl logs $POD_NAME
