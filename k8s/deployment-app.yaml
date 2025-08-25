@@ -28,7 +28,7 @@ spec:
         fsGroup: 10001
       containers:
         - name: api
-          image: my-placeholder/nest-redis-demo:latest
+          image: PLACEHOLDER_IMAGE
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
