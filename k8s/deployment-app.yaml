@@ -28,7 +28,7 @@ spec:
         fsGroup: 10001
       containers:
         - name: api
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/nest-redis-demo:latest
+          image: my-placeholder/nest-redis-demo:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
