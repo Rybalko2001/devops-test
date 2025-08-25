@@ -7,7 +7,7 @@ on:
     branches: ["main", "dev"]
 
 env:
-  IMAGE_NAME: nestjs-app
+  IMAGE_NAME: nest-redis-demo
   NAMESPACE: app-dev
 
 jobs:
@@ -63,28 +63,19 @@ jobs:
       # ------------------
       - name: Apply Kubernetes manifests
         run: |
-          # 1. Namespace
           kubectl apply -f k8s/namespace.yaml
-
-          # 2. Secrets and ConfigMaps
           kubectl apply -f k8s/secret-redis.yaml
           kubectl apply -f k8s/configmap-app.yaml
-
-          # 3. Deployments
           kubectl apply -f k8s/deployment-redis.yaml
           kubectl apply -f k8s/deployment-app.yaml
-
-          # 4. Services
           kubectl apply -f k8s/service-redis.yaml
           kubectl apply -f k8s/service-app.yaml
-
-          # 5. Ingress / NetworkPolicy / HPA
           kubectl apply -f k8s/ingress.yaml
           kubectl apply -f k8s/networkpolicy.yaml
           kubectl apply -f k8s/hpa.yaml
 
       # ------------------
-      # 8. Debug: Check Deployments
+      # 8. Debug: show deployments
       # ------------------
       - name: Check Deployments in namespace
         run: |
@@ -92,23 +83,59 @@ jobs:
           kubectl get deployments -n $NAMESPACE
 
       # ------------------
-      # 9. Verify Deployment rollout
+      # 9. Wait for NestJS Deployment to be ready
       # ------------------
-      - name: Verify Deployment rollout
+      - name: Wait for NestJS Pods
         run: |
-          kubectl rollout status deployment/$IMAGE_NAME -n $NAMESPACE
+          echo "Waiting for NestJS Pods to be ready..."
+          for i in {1..30}; do
+            READY=$(kubectl get deploy nestjs-app -n $NAMESPACE -o jsonpath='{.status.readyReplicas}')
+            if [ "$READY" == "2" ]; then
+              echo "All NestJS Pods are ready!"
+              exit 0
+            fi
+            echo "Waiting... ($i/30)"
+            kubectl get pods -n $NAMESPACE
+            sleep 10
+          done
+          echo "ERROR: NestJS Pods did not become ready in time."
+          kubectl describe deploy nestjs-app -n $NAMESPACE
+          kubectl get pods -n $NAMESPACE
+          exit 1
 
       # ------------------
-      # 10. Show logs from NestJS pod
+      # 10. Wait for Redis Deployment to be ready
       # ------------------
-      - name: Show NestJS logs
+      - name: Wait for Redis Pod
         run: |
-          POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=$IMAGE_NAME -o jsonpath="{.items[0].metadata.name}")
-          echo "NestJS Pod: $POD_NAME"
-          kubectl logs -n $NAMESPACE $POD_NAME
+          echo "Waiting for Redis Pod to be ready..."
+          for i in {1..30}; do
+            READY=$(kubectl get deploy redis -n $NAMESPACE -o jsonpath='{.status.readyReplicas}')
+            if [ "$READY" == "1" ]; then
+              echo "Redis Pod is ready!"
+              exit 0
+            fi
+            echo "Waiting... ($i/30)"
+            kubectl get pods -n $NAMESPACE
+            sleep 10
+          done
+          echo "ERROR: Redis Pod did not become ready in time."
+          kubectl describe deploy redis -n $NAMESPACE
+          kubectl get pods -n $NAMESPACE
+          exit 1
 
       # ------------------
-      # 11. Cleanup kind cluster
+      # 11. Show logs from NestJS and Redis Pods
+      # ------------------
+      - name: Show Pods logs
+        run: |
+          for POD in $(kubectl get pods -n $NAMESPACE -o jsonpath="{.items[*].metadata.name}"); do
+            echo "Logs for $POD:"
+            kubectl logs -n $NAMESPACE $POD || true
+          done
+
+      # ------------------
+      # 12. Cleanup kind cluster
       # ------------------
       - name: Delete Kind cluster
         if: always()
