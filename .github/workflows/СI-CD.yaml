@@ -7,7 +7,7 @@ on:
     branches: ["main", "dev"]
 
 env:
-  IMAGE_NAME: nest-redis-demo
+  IMAGE_NAME: nestjs-app
   NAMESPACE: app-dev
 
 jobs:
