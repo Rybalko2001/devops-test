@@ -32,15 +32,18 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
-          envFrom:
-            - configMapRef:
-                name: nest-app-config
           env:
+            - name: REDIS_HOST
+              value: "redis"        # імʼя сервісу Redis у k8s
+            - name: REDIS_PORT
+              value: "6379"
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: redis-secret
                   key: REDIS_PASSWORD
+            - configMapRef:
+                name: nest-app-config
           resources:
             requests:
               cpu: "100m"
